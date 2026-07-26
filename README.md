@@ -27,7 +27,7 @@ Claude Code 세션 안에서 원할 때만 `/fableplan <작업 설명>` 으로 �
 ## 설치
 
 ```bash
-git clone <이 저장소> && cd fableplan
+git clone https://github.com/uwonu606/fableplan.git && cd fableplan
 bash install.sh              # 전역 설치 (~/.claude) — 모든 프로젝트에서 사용 가능
 # 또는
 bash install.sh --project    # 특정 프로젝트의 .claude/ 에만 설치
