@@ -33,6 +33,12 @@ bash install.sh              # 전역 설치 (~/.claude) — 모든 프로젝트
 bash install.sh --project    # 특정 프로젝트의 .claude/ 에만 설치
 ```
 
+설치본은 복사본이라 저장소를 pull하거나 수정해도 자동으로 갱신되지 않습니다. 변경 후에는 install.sh를 다시 실행하세요.
+
+```bash
+git pull && bash install.sh
+```
+
 제거:
 
 ```bash
