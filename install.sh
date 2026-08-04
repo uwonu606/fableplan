@@ -6,20 +6,33 @@
 #   bash install.sh --project      # 현재 디렉토리의 .claude/ 에 설치
 #   bash install.sh --uninstall            # 전역 설치 제거
 #   bash install.sh --project --uninstall  # 프로젝트 설치 제거
+#   bash install.sh --help|-h              # 이 도움말 출력
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+usage() {
+  cat <<'EOF'
+사용법:
+  bash install.sh                # 전역 설치 (~/.claude) — 모든 프로젝트에서 /fableplan 사용 가능
+  bash install.sh --project      # 현재 디렉토리의 .claude/ 에 설치
+  bash install.sh --uninstall            # 전역 설치 제거
+  bash install.sh --project --uninstall  # 프로젝트 설치 제거
+  bash install.sh --help|-h              # 이 도움말 출력
+EOF
+}
 
 TARGET_ROOT="$HOME/.claude"
 UNINSTALL=false
 
 for arg in "$@"; do
   case "$arg" in
+    --help|-h)   usage; exit 0 ;;
     --project)   TARGET_ROOT="$(pwd)/.claude" ;;
     --uninstall) UNINSTALL=true ;;
     *)
       echo "알 수 없는 옵션: $arg" >&2
-      echo "사용법: bash install.sh [--project] [--uninstall]" >&2
+      usage >&2
       exit 1
       ;;
   esac
