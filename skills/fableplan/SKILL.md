@@ -15,9 +15,10 @@ opusplan(플랜=Opus, 구현=Sonnet)과 같은 구조를 "플랜=Fable, 구현=O
 1. **플랜 단계 (fable-planner agent)**
    - 작업 설명이 비어 있으면 사용자에게 무엇을 만들지 물어본다.
    - plan mode가 아니면 `EnterPlanMode`를 호출해 plan mode로 진입한다. subagent는 부모의 권한 모드를 상속하므로 planner의 파일 수정도 함께 차단된다.
+   - plan mode 진입 시 시스템이 Explore/Plan agent를 쓰는 기본 플랜 절차를 주입한다. 이 워크플로에서는 그 절차를 따르지 않고 `fable-planner` 하나만 쓴다.
    - `fable-planner` agent를 실행한다: Agent tool, `subagent_type: "fable-planner"`, `run_in_background: false`. 프롬프트에 작업 설명 전문과 작업 디렉토리 절대 경로를 담는다.
    - 반환값 처리:
-     - `PLAN`으로 시작하면: 플랜 전문 그대로 `ExitPlanMode`로 사용자 승인을 요청한다 (요약·재작성 금지).
+     - `PLAN`으로 시작하면: 첫 줄 `PLAN`을 뺀 나머지 전문을 plan mode가 지정한 플랜 파일에 그대로 옮겨 적은 뒤 `ExitPlanMode`를 호출한다. `ExitPlanMode`는 플랜을 인자로 받지 않고 그 파일을 읽어 사용자에게 보여주므로, 옮겨 적지 않으면 승인 화면에 플랜이 뜨지 않는다. 옮길 때 요약·재작성하지 않는다 — 전사(轉寫)만 허용된다.
      - `QUESTIONS`로 시작하면: `AskUserQuestion`으로 사용자에게 묻고, 답을 `SendMessage`로 planner에게 전달해 플랜을 받는다.
    - 승인이 거부되면: 피드백 전문을 `SendMessage`로 planner에게 전달해 수정된 플랜을 받고, 다시 승인을 요청한다. 메인 스레드가 플랜을 직접 고치지 않는다 — 고치는 순간, 실제로 승인돼 빌더에게 넘어가는 최종 플랜을 Fable이 아닌 세션 모델이 쓴 게 된다.
 
