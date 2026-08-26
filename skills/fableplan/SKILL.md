@@ -48,7 +48,11 @@ opusplan(플랜=Opus, 구현=Sonnet)과 같은 구조를 "플랜=Fable, 구현=O
 - plan mode 진입 시 시스템이 Explore/Plan agent 를 쓰는 기본 플랜 절차를 주입한다.
   이 워크플로에서는 그 절차를 따르지 않고 `fable-planner` 하나만 쓴다.
 - `fable-planner` 를 실행한다: Agent tool, `subagent_type: "fable-planner"`, **`name` 없이**.
-  프롬프트에 작업 설명 전문과 작업 디렉토리 절대 경로를 담는다. **반환된 agentId 를 기록한다.**
+  프롬프트에 작업 설명 전문과 작업 디렉토리 절대 경로를 담는다. 작업 설명에 설계 문서 파일 경로가
+  있으면(예: `/grill-me` 가 남긴 설계 합의문) 그 경로도 프롬프트에 담아 planner 가 Read 로 원문을
+  읽게 한다 — 메인 스레드가 문서를 요약해 전달하지 않는다. 사용 가능한 스킬 목록에 `grilling` 이나
+  `explore-model` 이 없으면 그 사실도 프롬프트에 명시해, planner 가 해당 Skill 호출을 시도하지 않고
+  그 규율 없이 진행하게 한다. **반환된 agentId 를 기록한다.**
 - 완료 알림을 기다린 뒤 `<result>` 를 처리한다:
   - **`PLAN` 으로 시작**: 첫 줄 `PLAN` 을 뺀 나머지 전문을 plan mode 가 지정한 플랜 파일에
     그대로 옮겨 적은 뒤 `ExitPlanMode` 를 호출한다. `ExitPlanMode` 는 플랜을 인자로 받지 않고
@@ -56,6 +60,8 @@ opusplan(플랜=Opus, 구현=Sonnet)과 같은 구조를 "플랜=Fable, 구현=O
     옮길 때 요약·재작성하지 않는다 — 전사(轉寫)만 허용된다.
   - **`QUESTIONS` 로 시작**: `AskUserQuestion` 으로 사용자에게 묻고, 답 전문을
     `SendMessage({to: "<planner agentId>"})` 로 전달한 뒤 다음 알림을 기다린다.
+    planner 는 grilling 규율대로 **결정 하나당 QUESTIONS 하나**를 보내므로, 이 왕복은
+    결정 수만큼 반복될 수 있다 — 루프는 그대로, 횟수만 늘어난다.
   - **둘 다 아님**: 메인 스레드가 형식을 맞춰 주지 않는다. `SendMessage` 로 planner 에게
     규정된 형식(`PLAN` 또는 `QUESTIONS`)으로 다시 반환하라고 요구한다.
 - 승인이 거부되면: 피드백 **전문**을 `SendMessage({to: "<planner agentId>"})` 로 전달해
@@ -65,10 +71,15 @@ opusplan(플랜=Opus, 구현=Sonnet)과 같은 구조를 "플랜=Fable, 구현=O
 
 ### 2. 구현 단계 (opus-builder agent)
 
-- 플랜이 승인되면 즉시 `opus-builder` 를 실행한다:
+- 플랜이 승인되면 먼저 `git rev-parse HEAD` 로 **구현 시작 전 HEAD 를 기록해 둔다** —
+  3단계 code-review 의 기준점(fixed point)이다. 이 커맨드가 실패하면(작업 디렉토리가 git repo 가
+  아님) 기록을 생략한다 — 3단계의 code-review 와 커밋 위임도 함께 생략된다(규칙 절 참조).
+- 이어서 즉시 `opus-builder` 를 실행한다:
   Agent tool, `subagent_type: "opus-builder"`, **`name` 없이**. **반환된 agentId 를 기록한다.**
 - 프롬프트에 다음을 전부 담는다: 승인된 플랜 전문(요약 금지), 작업 디렉토리 절대 경로,
   planner 가 플랜에 명시한 관련 파일 경로·재사용할 코드 위치·주의사항.
+  플랜이 TDD 적용을 명시했는데 사용 가능한 스킬 목록에 `tdd` 가 없으면, TDD 규율 없이 구현하고
+  플랜의 검증 절차로 갈음하라는 사실도 프롬프트에 명시한다.
 - subagent 는 사용자에게 질문할 수 없으므로 프롬프트에 모호함이 남지 않게 전달한다.
   플랜에 없는 결정사항이 남아 있다면 agent 실행 전에 사용자에게 먼저 확인한다.
 - 완료 알림을 기다린다. 알림 전에 진행 상황을 추측해 보고하지 않는다.
@@ -78,15 +89,44 @@ opusplan(플랜=Opus, 구현=Sonnet)과 같은 구조를 "플랜=Fable, 구현=O
 - `<result>` 의 변경 파일 목록과 검증 결과를 확인한다.
 - 플랜의 검증 절차를 메인 스레드에서 **직접 재실행한다** (테스트/빌드/실행).
   빌더의 자기 보고를 검증으로 갈음하지 않는다.
-- 실패가 있으면: 실패 내용을 정리해 `SendMessage({to: "<builder agentId>"})` 로 수정을 위임한다.
-  새로 스폰하면 구현 컨텍스트를 잃고, 커밋·PR 같은 부수효과가 중복될 수 있다.
-- 최종 보고: 무엇이 바뀌었고, 검증이 어떻게 통과했는지 사용자에게 요약한다.
+  이 재실행은 플랜이 동결한 모델 반례 회귀 테스트도 함께 커버한다 — fable-planner 의 "별도의 2차 explore-model 호출 단계를 플랜에 두지 않는다"는 지시가 이 재실행을 전제하므로, 이 루프를 바꾸면 그 지시도 함께 손봐야 한다.
+- 검증이 통과하면 메인 스레드에서 `Skill(code-review)` 를 실행한다. 기준점(fixed point)은
+  2단계에서 기록한 구현 시작 전 HEAD, 대상은 워킹트리 diff 다 — 아직 커밋 전이므로
+  `git diff <기록한 SHA>` 가 변경 전체를 본다. 리뷰 발견 사항은 검증 실패와 같은 경로로 위임한다.
+  단, `code-review` 스킬이 사용 가능한 스킬 목록에 없거나 2단계에서 HEAD 를 기록하지 못했으면
+  이 리뷰를 생략한다 — 테스트/빌드 재실행 검증은 그대로 수행한다.
+- 검증 실패나 리뷰 발견 사항이 있으면: 내용을 정리해 `SendMessage({to: "<builder agentId>"})` 로
+  수정을 위임한다. 새로 스폰하면 구현 컨텍스트를 잃고, 커밋·PR 같은 부수효과가 중복될 수 있다.
+  수정 결과가 돌아오면 검증과 리뷰를 다시 통과할 때까지 이 루프를 반복한다.
+- 검증과 리뷰가 모두 통과하면 `SendMessage({to: "<builder agentId>"})` 로 **커밋을 위임한다.**
+  위임 메시지에 명시한다: 사용자가 승인한 플랜에 따른 **사용자 지시 커밋**이며,
+  `Skill(scoped-commits)` 를 호출해 의미 단위 분할과 scope 중심 메시지로 커밋할 것.
+  2단계에서 HEAD 를 기록하지 못했으면(git repo 아님) 커밋 위임 자체를 생략한다.
+  `scoped-commits` 가 사용 가능한 스킬 목록에 없으면 위임은 하되, 위임 메시지에 scoped-commits
+  없이 통상적인 커밋 메시지로 한 번에 커밋하라고 바꿔 명시한다.
+  메인 스레드가 직접 커밋하지 않는다.
+- 최종 보고: 무엇이 바뀌었고, 검증·리뷰가 어떻게 통과했으며, 어떤 커밋이 만들어졌는지(SHA)
+  사용자에게 요약한다. 스킬 미설치나 git repo 아님으로 생략한 단계가 있으면, 무엇을 왜
+  생략했는지 함께 보고한다.
 
 ## 규칙
 
-- 플랜 승인 전에는 어떤 파일도 수정하지 않는다. 단, plan mode 가 하드 차단하는 것은 Edit/Write 뿐이다 —
+- 플랜 승인 전에는 프로젝트 파일을 수정하지 않는다. 단, plan mode 가 하드 차단하는 것은 Edit/Write 뿐이다 —
   변경성 Bash(rm, git commit 등)는 차단이 아니라 사용자 승인 프롬프트로 넘어가므로 승인되면 실행될 수 있다.
-  그래도 이 워크플로에서는 승인 전에 변경성 Bash 를 호출하지 않으며, planner 에게도 시키지 않는다.
+  그래도 이 워크플로에서는 승인 전에 **프로젝트 파일을 건드리는** 변경성 Bash 를 호출하지 않으며,
+  planner 에게도 시키지 않는다. 예외는 하나다: planner 가 explore-model 탐색 하네스를
+  **세션 scratchpad 디렉토리 안에서만** 작성·실행하는 것. 하네스는 탐색이 끝나면 버리며(스킬 자체 규정),
+  프로젝트 파일은 여전히 승인 전에 손대지 않는다.
+- `implement`·`grill-me` 스킬은 이 워크플로에서 호출하지 않는다 — `disable-model-invocation` 이라
+  모델(메인 스레드·subagent 모두)이 Skill tool 로 호출할 수 없다. grilling·explore-model·tdd·
+  code-review·scoped-commits 가 모델 호출 가능한 대체 경로다.
+- 참조 스킬(grilling·explore-model·tdd·code-review·scoped-commits)과 git repo 는 **하드 의존이
+  아니다.** 스킬이 사용 가능한 스킬 목록에 없으면 그 스킬이 단계의 본질인 경우(explore-model 의
+  모델 검사, code-review 의 리뷰) 단계째 건너뛰고, 규율인 경우(grilling 의 질문 규율, tdd 의
+  red→green, scoped-commits 의 분할·메시지) 그 규율 없이 단계를 진행한다. 작업 디렉토리가 git
+  repo 가 아니면 HEAD 기록·code-review·커밋 위임을 생략한다. 각 분기의 구체 절차는 절차 절의
+  해당 단계에 있다. 어느 경우든 메인 스레드가 그 단계를 대신 수행하지 않으며, 생략 사실을
+  최종 보고에 명시한다.
 - agent 간에 플랜·피드백·답변을 전달할 때 축약하지 않는다 — 원문 그대로.
 - opus-builder 가 플랜 범위를 벗어난 변경을 보고하면, 사용자에게 알리고 되돌릴지 확인한다.
 - **agent 가 결과 없이 조용하면 재실행하지 말고 산출물로 확인한다.** `idleReason: "available"` 은
