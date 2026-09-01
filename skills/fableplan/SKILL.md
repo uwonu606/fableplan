@@ -140,6 +140,11 @@ opusplan(플랜=Opus, 구현=Sonnet)과 같은 구조를 "플랜=Fable, 구현=O
   topic-branch 정리 절차로 치운다). 둘: planner 가 explore-model 탐색 하네스를
   **세션 scratchpad 디렉토리 안에서만** 작성·실행하는 것. 하네스는 탐색이 끝나면 버리며(스킬 자체 규정),
   프로젝트 파일은 여전히 승인 전에 손대지 않는다.
+  이 둘째 예외의 두 절반은 승인 비용이 다르다 — scratchpad 안으로 향하는 **쓰기**는
+  `plan-mode-autoallow` 훅이 무음 통과시키지만, 하네스 **실행**은 스크립트 내용을 훅의 파서가
+  증명할 수 없어 매번 승인 프롬프트로 넘어간다. 의도된 게이트이니 우회하지 않는다. 탐색을
+  여러 번 돌리는 사이 planner 가 조용해 보이면 승인 대기일 수 있다 — 아래 **"조용하면
+  재실행하지 말고"** 규칙이 그대로 적용된다.
 - `implement`·`grill-me` 스킬은 이 워크플로에서 호출하지 않는다 — `disable-model-invocation` 이라
   모델(메인 스레드·subagent 모두)이 Skill tool 로 호출할 수 없다. grilling·explore-model·tdd·
   code-review·scoped-commits 가 모델 호출 가능한 대체 경로다.
