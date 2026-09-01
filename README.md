@@ -26,13 +26,14 @@ Claude Code 세션 안에서 원할 때만 `/fableplan <작업 설명>` 으로 �
 
 ### 의존 스킬
 
-워크플로의 단계들이 외부 스킬 5개를 참조합니다: `grilling`·`explore-model`(플랜),
-`tdd`·`scoped-commits`(구현·커밋), `code-review`(검증). install.sh 가 설치 시
-이들의 존재를 확인해 없으면 경고합니다 — 설치 자체는 계속됩니다.
+워크플로의 단계들이 외부 스킬 6개를 참조합니다: `topic-branch`(작업 브랜치),
+`grilling`·`explore-model`(플랜), `tdd`·`scoped-commits`(구현·커밋),
+`code-review`(검증). install.sh 가 설치 시 이들의 존재를 확인해 없으면
+경고합니다 — 설치 자체는 계속됩니다.
 
 하드 의존은 아닙니다. 없는 스킬이 쓰이는 단계는 건너뛰거나 그 규율 없이 진행하고,
-최종 보고에 명시합니다. 작업 디렉토리가 git repo 가 아니면 code-review 와 커밋
-단계도 생략합니다.
+최종 보고에 명시합니다. 작업 디렉토리가 git repo 가 아니면 작업 브랜치·code-review·
+커밋 단계를 생략합니다.
 
 ### 왜 이런 구조인가
 
