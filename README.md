@@ -10,6 +10,8 @@ Claude Code 세션 안에서 원할 때만 `/fableplan <작업 설명>` 으로 �
 > /fableplan 로그인 기능 추가
 > /fableplan docs/설계-합의문.md     # /grill-me 가 남긴 설계 문서 경로도 받는다
 
+0. [메인]   topic-branch 로 이 작업의 브랜치+워크트리를 연다 (plan mode 진입 전)
+            — 이후 모든 단계의 작업 디렉토리가 이 워크트리다
 1. [Fable]  fable-planner agent가 코드 탐색 후 플랜 작성
             — 설계 문서가 있으면 원문을 읽고 남은 결정만 다룬다
             — 결정이 필요한 지점은 grilling 규율로 한 번에 하나씩 질문 (메인 스레드가 중계)
@@ -18,6 +20,8 @@ Claude Code 세션 안에서 원할 때만 `/fableplan <작업 설명>` 으로 �
 3. [Opus]   opus-builder agent가 승인된 플랜을 그대로 구현 (플랜이 지시하면 TDD)
 4. [메인]   테스트/빌드 재실행 + code-review 로 검증 — 발견 사항은 builder에게 수정 위임
 5. [Opus]   검증·리뷰 통과 후, 메인 스레드가 위임한 커밋을 scoped-commits 규약으로 수행
+6. [사용자]  브랜치를 어떻게 닫을지 확인 — main 에 합치기 / PR 열기 / 브랜치로 두기
+            — 확인 없이 합치거나 push 하지 않는다
 ```
 
 ### 의존 스킬
