@@ -96,6 +96,7 @@ plan mode 진입 → fable-planner 플랜 → 승인 → opus-builder 실행 →
 ```
 fableplan/
 ├── README.md
+├── dep-skills.md                 # 의존 스킬 매니페스트 — 설치 경고 목록의 단일 출처
 ├── install.sh                    # 설치/제거 스크립트
 ├── skills/fableplan/SKILL.md     # /fableplan 슬래시 커맨드 (워크플로 정의)
 └── agents/
