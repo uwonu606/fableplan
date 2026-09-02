@@ -67,7 +67,7 @@ echo "새 Claude Code 세션에서 /fableplan <작업 설명> 으로 사용하�
 echo "세션 모델과 무관하게 플랜은 Fable, 구현은 Opus subagent가 수행합니다."
 
 # 의존 스킬 존재 확인 — 없어도 설치는 계속한다 (해당 단계는 실행 시 건너뜀)
-DEP_SKILLS=(grilling explore-model tdd code-review scoped-commits)
+DEP_SKILLS=(topic-branch grilling explore-model tdd code-review scoped-commits)
 MISSING=()
 for skill in "${DEP_SKILLS[@]}"; do
   if [[ ! -f "$TARGET_ROOT/skills/$skill/SKILL.md" && ! -f "$HOME/.claude/skills/$skill/SKILL.md" ]]; then
