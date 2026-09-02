@@ -67,13 +67,35 @@ echo "새 Claude Code 세션에서 /fableplan <작업 설명> 으로 사용하�
 echo "세션 모델과 무관하게 플랜은 Fable, 구현은 Opus subagent가 수행합니다."
 
 # 의존 스킬 존재 확인 — 없어도 설치는 계속한다 (해당 단계는 실행 시 건너뜀)
-DEP_SKILLS=(topic-branch grilling explore-model tdd code-review scoped-commits)
+# 경고 대상 목록의 단일 출처는 dep-skills.md 다. 표에서 소문자로 시작하는 첫 셀만 스킬 이름으로 읽는다.
+MANIFEST="$REPO_DIR/dep-skills.md"
+DEP_SKILLS=()
+if [[ -f "$MANIFEST" ]]; then
+  while IFS= read -r line || [[ -n $line ]]; do   # || 절 — 개행 없이 끝나는 마지막 행도 읽는다
+    line="${line#"${line%%[![:space:]]*}"}"       # 앞 공백 제거 — 들여쓴 표 행도 표 행이다
+    [[ $line == \|* ]] || continue                # 표 행이 아니면 건너뜀
+    IFS='|' read -r _lead cell _rest <<<"$line"
+    cell="${cell//[[:space:]]/}"                  # 정렬용 공백 제거 — 스킬 이름에는 공백이 없다
+    case "$cell" in
+      # 소문자를 [a-z] 범위 대신 나열한다 — 범위는 로케일에 따라 대문자까지 매치한다(bash 3.2)
+      [abcdefghijklmnopqrstuvwxyz]*) DEP_SKILLS+=("$cell") ;;   # 헤더(한글·영문)·구분선(-, :)은 배제
+    esac
+  done < "$MANIFEST"
+fi
+if [[ ${#DEP_SKILLS[@]} -eq 0 ]]; then
+  {
+    echo ""
+    echo "경고: 의존 스킬 매니페스트($MANIFEST)에서 스킬 목록을 읽지 못했습니다 — 존재 확인을 건너뜁니다."
+  } >&2
+fi
 MISSING=()
-for skill in "${DEP_SKILLS[@]}"; do
-  if [[ ! -f "$TARGET_ROOT/skills/$skill/SKILL.md" && ! -f "$HOME/.claude/skills/$skill/SKILL.md" ]]; then
-    MISSING+=("$skill")
-  fi
-done
+if [[ ${#DEP_SKILLS[@]} -gt 0 ]]; then
+  for skill in "${DEP_SKILLS[@]}"; do
+    if [[ ! -f "$TARGET_ROOT/skills/$skill/SKILL.md" && ! -f "$HOME/.claude/skills/$skill/SKILL.md" ]]; then
+      MISSING+=("$skill")
+    fi
+  done
+fi
 if [[ ${#MISSING[@]} -gt 0 ]]; then
   {
     echo ""
