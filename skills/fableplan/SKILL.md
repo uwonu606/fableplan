@@ -71,7 +71,7 @@ opusplan(플랜=Opus, 구현=Sonnet)과 같은 구조를 "플랜=Fable, 구현=O
   이 워크플로에서는 그 절차를 따르지 않고 `fable-planner` 하나만 쓴다.
 - `fable-planner` 를 실행한다: Agent tool, `subagent_type: "fable-planner"`, **`name` 없이**.
   프롬프트에 작업 설명 전문과 작업 디렉토리 절대 경로를 담는다. 작업 설명에 설계 문서 파일 경로가
-  있으면(예: `/grill-me` 가 남긴 설계 합의문) 그 경로도 프롬프트에 담아 planner 가 Read 로 원문을
+  있으면(예: 그릴링 세션이 남긴 설계 합의문) 그 경로도 프롬프트에 담아 planner 가 Read 로 원문을
   읽게 한다 — 메인 스레드가 문서를 요약해 전달하지 않는다. 사용 가능한 스킬 목록에 `grilling` 이나
   `explore-model` 이 없으면 그 사실도 프롬프트에 명시해, planner 가 해당 Skill 호출을 시도하지 않고
   그 규율 없이 진행하게 한다. **반환된 agentId 를 기록한다.**
@@ -82,8 +82,13 @@ opusplan(플랜=Opus, 구현=Sonnet)과 같은 구조를 "플랜=Fable, 구현=O
     옮길 때 요약·재작성하지 않는다 — 전사(轉寫)만 허용된다.
   - **`QUESTIONS` 로 시작**: `AskUserQuestion` 으로 사용자에게 묻고, 답 전문을
     `SendMessage({to: "<planner agentId>"})` 로 전달한 뒤 다음 알림을 기다린다.
-    planner 는 grilling 규율대로 **결정 하나당 QUESTIONS 하나**를 보내므로, 이 왕복은
-    결정 수만큼 반복될 수 있다 — 루프는 그대로, 횟수만 늘어난다.
+    planner 는 grilling 규율대로 **한 라운드에 frontier 전체**(선행 결정이 이미 풀려 지금 답할 수
+    있는 질문 전부)를 번호 붙여 보내므로, 하나의 `QUESTIONS` 에 질문이 여럿 실려 온다.
+    `AskUserQuestion` 은 한 번에 질문 4개까지만 받는다 — 라운드가 그보다 크면 같은 라운드 안에서
+    4개씩 나눠 연달아 묻고, **답을 전부 모아 한 번의 `SendMessage` 로** 되돌린다. 한 라운드의 답이
+    쪼개져 도착하면 planner 가 frontier 를 다시 계산하지 못한다.
+    이 왕복은 라운드 수만큼 반복된다 — 루프는 그대로고, 결정 하나당 한 번이 아니라
+    라운드 하나당 한 번이라 왕복 수는 줄어든다.
   - **둘 다 아님**: 메인 스레드가 형식을 맞춰 주지 않는다. `SendMessage` 로 planner 에게
     규정된 형식(`PLAN` 또는 `QUESTIONS`)으로 다시 반환하라고 요구한다.
 - 승인이 거부되면: 피드백 **전문**을 `SendMessage({to: "<planner agentId>"})` 로 전달해
@@ -150,13 +155,13 @@ opusplan(플랜=Opus, 구현=Sonnet)과 같은 구조를 "플랜=Fable, 구현=O
   증명할 수 없어 매번 승인 프롬프트로 넘어간다. 의도된 게이트이니 우회하지 않는다. 탐색을
   여러 번 돌리는 사이 planner 가 조용해 보이면 승인 대기일 수 있다 — 아래 **"조용하면
   재실행하지 말고"** 규칙이 그대로 적용된다.
-- `implement`·`grill-me` 스킬은 이 워크플로에서 호출하지 않는다 — `disable-model-invocation` 이라
+- `implement` 스킬은 이 워크플로에서 호출하지 않는다 — `disable-model-invocation` 이라
   모델(메인 스레드·subagent 모두)이 Skill tool 로 호출할 수 없다. grilling·explore-model·tdd·
   code-review·scoped-commits 가 모델 호출 가능한 대체 경로다.
 - 참조 스킬(topic-branch·grilling·explore-model·tdd·code-review·scoped-commits)과 git repo 는
   **하드 의존이 아니다.** 스킬이 사용 가능한 스킬 목록에 없으면 그 스킬이 단계의 본질인
   경우(topic-branch 의 격리, explore-model 의 모델 검사, code-review 의 리뷰) 단계째 건너뛰고,
-  규율인 경우(grilling 의 질문 규율, tdd 의 red→green, scoped-commits 의 분할·메시지) 그 규율
+  규율인 경우(grilling 의 라운드 규율, tdd 의 red→green, scoped-commits 의 분할·메시지) 그 규율
   없이 단계를 진행한다. 작업 디렉토리가 git repo 가 아니면 0단계·HEAD 기록·code-review·커밋
   위임을 생략한다. 각 분기의 구체 절차는 절차 절의 해당 단계에 있다. 어느 경우든 메인 스레드가 그 단계를 대신 수행하지 않으며, 생략 사실을
   최종 보고에 명시한다.
