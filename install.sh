@@ -72,6 +72,11 @@ MANIFEST="$REPO_DIR/dep-skills.md"
 DEP_SKILLS=()
 if [[ -f "$MANIFEST" ]]; then
   while IFS= read -r line || [[ -n $line ]]; do   # || 절 — 개행 없이 끝나는 마지막 행도 읽는다
+    # 손편집·붙여넣기가 남기는 비ASCII 공백류는 [:space:] 분류가 로케일마다 달라 바이트 리터럴로 지운다
+    line="${line//$'\xc2\xa0'/}"                  # NBSP(U+00A0) — macOS Option+Space
+    line="${line//$'\xe3\x80\x80'/}"              # 전각 공백(U+3000) — CJK IME 전각 모드
+    line="${line//$'\xe2\x80\x8b'/}"              # ZWSP(U+200B)
+    line="${line//$'\xef\xbb\xbf'/}"              # BOM/ZWNBSP(U+FEFF) — 붙여넣기 잔여물
     line="${line#"${line%%[![:space:]]*}"}"       # 앞 공백 제거 — 들여쓴 표 행도 표 행이다
     [[ $line == \|* ]] || continue                # 표 행이 아니면 건너뜀
     IFS='|' read -r _lead cell _rest <<<"$line"
